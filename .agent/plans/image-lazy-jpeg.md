@@ -37,10 +37,15 @@ are summarized in the report.
   current `origin/master`, and inspected the JPEG factory, pipeline, source,
   materializer, native registrations, and existing tests.
 - [x] (2026-09-30) Committed this plan before implementation as required.
-- [ ] Implement immutable decode policy and make both public factories defer
-  materialization while retaining their exact logical metadata and errors.
-- [ ] Remove the public native replacements and add focused Java and deployed
-  macOS coverage for capture, materialization, parity, and failure behavior.
+- [x] (2026-09-30) Added the immutable pipeline-root decode policy and changed
+  both Java factory return paths to retain the captured source and defer pixels.
+  Added lazy metadata, denominator, signature, and file-replacement/deletion
+  tests. Static diff and focused header checks pass; SDK tests wait until stale
+  deployed replacements are removed so milestone validation exercises the full
+  public contract.
+- [ ] Remove public native replacements and registrations, then run milestone 1
+  SDK tests. Continue with materialization parity/failure coverage and deployed
+  macOS smokes.
 - [ ] Run the specified SDK and macOS validations, write and commit the final
   report, push the branch, and open a PR against `master` without merging.
 
