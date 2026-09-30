@@ -36,8 +36,8 @@ each milestone. The final factual handoff is
 - [x] (2026-09-30) Fetched origin/master, created isolated branch
       feat/scroll-raster-reuse at 0176c83c5, preserved the pre-existing dirty
       worktree, and confirmed P1's typed default-off policy.
-- [ ] Commit this plan before implementation. Then complete Milestone 1
-      eligibility and rectangle math tests without a native build.
+- [x] (2026-09-30) Added the internal fallback enum and pure physical-rectangle
+      planner; focused M1 tests pass without a native build.
 - [ ] Complete Milestone 2 raster move and ScrollContainer integration with
       correctness comparison against forced full repaint.
 - [ ] Complete focused SDK and macOS validation, write and commit the report,
@@ -56,9 +56,11 @@ physical width, height, pitch, and content scale. Native screen presentation
 tracks damage as a union rectangle in Context and converts the 32-bit raster
 buffer to the target screen format. Graphics.copyRect is a general drawing
 operation with current draw/clip semantics; it is not yet proven to provide a
-bounded byte-exact raster move. RuntimeEnvironment has finalized backend facts;
-the native backend code distinguishes GLES from non-GLES, so eligibility must
-not treat that fact alone as proof of a software raster backend.
+bounded byte-exact raster move. RuntimeEnvironment exposes RASTER/GPU, but that
+fact alone does not prove the legacy renderer uses the shared array. Native
+capability must also be checked. The planner treats integer content scales as
+supported because fractional scales can shift individual rounded edges by
+different physical pixel counts; other scales select UNSUPPORTED_TRANSFORM.
 
 P1 already exposes ImageRuntimePolicy.ScrollRasterReusePolicy.enabled and its
 default is false. Consume this field only. RuntimeDiagnosticSnapshot currently
@@ -141,6 +143,11 @@ orthogonal, and rerun full P7 validation plus relevant P6 regression smokes.
   eligibility fact; any uncertainty selects the existing repaint path.
   Rationale: stale or corrupted pixels are worse than a missed optimization.
   Date: 2026-09-30.
+- Decision: Limit initial reuse to integral content scales and the shared
+  32-bit main-window raster array.
+  Rationale: fractional logical edge rounding can make a uniform framebuffer
+  translation differ from repainting content at its new logical position.
+  Date: 2026-09-30.
 
 ## Validation and Acceptance
 
@@ -187,7 +194,10 @@ specification; do not amend or rewrite user-authored history.
 
 ## Outcomes & Retrospective
 
-Not started. At completion, summarize delivered behavior, fallback limits,
+Milestone 1 is complete: fallback selection is deterministic; logical edges
+convert with Graphics' nearest-edge rule; viewport clipping, scroll sign,
+overlap order, scaling, and arithmetic rejection are covered by the focused
+SDK test. At completion, summarize delivered behavior, fallback limits,
 supported backends/formats, validation results, performance evidence scope,
 and the pending P6 integration requirement. The detailed final factual handoff
 is in .agent/reports/scroll-raster-reuse.md.
@@ -195,5 +205,4 @@ is in .agent/reports/scroll-raster-reuse.md.
 ## Revision Note
 
 - Initial plan created before implementation on 2026-09-30 from the fetched
-  origin/master revision. It records the known architecture boundaries and
-  validation order without treating historical branches as implementation.
+  origin/master revision; M1 checkpoint recorded after focused tests passed.
