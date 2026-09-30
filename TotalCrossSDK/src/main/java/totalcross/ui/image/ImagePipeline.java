@@ -22,6 +22,7 @@ final class ImagePipeline {
   static final int FRAME_LAYOUT = 13;
 
   private final ImageSource root;
+  private final ImageDecodePolicy decodePolicy;
   private final ImagePipeline previous;
   private final int operationType;
   private final int parameter1;
@@ -59,10 +60,18 @@ final class ImagePipeline {
   private long cachedDrawGeneration2;
 
   ImagePipeline(ImageSource root) {
+    this(root, ImageDecodePolicy.targetDecode());
+  }
+
+  ImagePipeline(ImageSource root, ImageDecodePolicy decodePolicy) {
     if (root == null) {
       throw new NullPointerException("root");
     }
+    if (decodePolicy == null) {
+      throw new NullPointerException("decodePolicy");
+    }
     this.root = root;
+    this.decodePolicy = decodePolicy;
     previous = null;
     operationType = -1;
     parameter1 = parameter2 = parameter3 = parameter4 = 0;
@@ -80,6 +89,7 @@ final class ImagePipeline {
       int parameter3, int parameter4, int width, int height, int logicalWidth, int logicalHeight,
       int frameCount, int widthOfAllFrames) {
     this.root = previous.root;
+    this.decodePolicy = previous.decodePolicy;
     this.previous = previous;
     this.operationType = operationType;
     this.parameter1 = parameter1;
@@ -98,6 +108,10 @@ final class ImagePipeline {
 
   ImageSource root() {
     return root;
+  }
+
+  ImageDecodePolicy decodePolicy() {
+    return decodePolicy;
   }
 
   ImagePipeline previous() {

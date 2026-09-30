@@ -684,7 +684,11 @@ public class Image extends GfxSurface {
   }
 
   private void initializeDeferred(EncodedImageSource source) {
-    pipeline = new ImagePipeline(source);
+    initializeDeferred(source, ImageDecodePolicy.targetDecode());
+  }
+
+  private void initializeDeferred(EncodedImageSource source, ImageDecodePolicy decodePolicy) {
+    pipeline = new ImagePipeline(source, decodePolicy);
     width = source.getFrameCount() > 1 ? source.getLogicalWidth() : source.getIntrinsicWidth();
     height = source.getIntrinsicHeight();
     widthOfAllFrames = source.getIntrinsicWidth();
