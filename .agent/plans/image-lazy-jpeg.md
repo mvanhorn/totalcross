@@ -43,9 +43,12 @@ are summarized in the report.
   tests. Static diff and focused header checks pass; SDK tests wait until stale
   deployed replacements are removed so milestone validation exercises the full
   public contract.
-- [ ] Remove public native replacements and registrations, then run milestone 1
-  SDK tests. Continue with materialization parity/failure coverage and deployed
-  macOS smokes.
+- [x] (2026-09-30) Removed both public native replacements, registry entries,
+  declarations, and path-reading handlers. Milestone 1 focused SDK tests passed:
+  36 tests across policy, decode requirement, encoded source, and lazy
+  materialization suites (log: `/tmp/image-lazy-jpeg-m1-tests.log`).
+- [ ] Add remaining materialization parity/failure coverage and durable deployed
+  macOS smokes; run final SDK/artifact and macOS validation.
 - [ ] Run the specified SDK and macOS validations, write and commit the final
   report, push the branch, and open a PR against `master` without merging.
 
@@ -61,12 +64,11 @@ conservative JPEG denominator, and calls full or tiered decode. The private
 `decodeEncodedSource`, `decodeEncodedSourceTargeted`, and
 `decodeEncodedSourceTiered` methods are deploy-time native bridges.
 
-The two public JPEG factories currently capture the source and create a smooth
-scale pipeline, but then eagerly call `materializeCanonicalChecked()`. Both are
-also annotated `@ReplacedByNativeOnDeploy`; their native registrations and C
-handlers reopen the path and eagerly decode. Remove only those two public
-replacements/registrations/handlers. Keep `nativeResizeJpeg` and the private
-materialization bridges.
+On the fetched base, the two public JPEG factories captured the source and made
+a smooth scale pipeline, then eagerly called `materializeCanonicalChecked()`.
+Their native registrations and C handlers reopened the path and eagerly
+decoded. The feature removes those two replacements/registrations/handlers;
+`nativeResizeJpeg` and private materialization bridges remain.
 
 `ImageDecodePolicy` will be package-private, immutable, and owned by an
 `ImagePipeline` root rather than `EncodedImageSource`. A request-specific policy
@@ -82,7 +84,7 @@ physical variants, prefetch, or PNG behavior. Do not change ordinary
 
 ## Plan of Work
 
-### 1. Model policy and lazy factory requests
+### 1. Model policy and lazy factory requests — complete
 
 Add the immutable package-private `ImageDecodePolicy` and carry it on the root
 `ImagePipeline`. Preserve the public descriptors exactly. Build each factory
@@ -95,9 +97,10 @@ conservative native denominator separately from the final logical dimensions.
 Acceptance: focused SDK tests show zero decode calls and no pixel backing before
 return, with width/height/frame/content-scale/path metadata available; dimensions
 and public descriptors match current behavior; deleting or replacing the source
-file after return does not change the materialized pixels.
+file after return does not change the materialized pixels. Milestone 1 is proven
+by the 36 passing focused tests recorded in `Progress`.
 
-### 2. Route deployed factories through Java and validate semantics
+### 2. Route deployed factories through Java and validate semantics — active
 
 Remove public replacement annotations, NativeMethods entries/prototypes, and C
 handlers for only `getJpegBestFit` and `getJpegScaled`. Keep private decode
@@ -142,11 +145,12 @@ Then check the complete branch diff/status/history, push
 
 ## Validation and Acceptance
 
-- Level 1/2: run focused `ImageLazyMaterializationTest`, new JPEG policy/factory
-  tests, `ImageDecodeRequirementTest`, and `EncodedImageSourceTest`, plus
-  `git diff --check` and focused header validation.
-- Milestone 1: run SDK tests only, covering lazy return, dimensions/rounding,
-  source capture, signatures, and replacement removal.
+- Level 1/2: milestone 1 SDK tests passed: 36 tests across
+  `ImageLazyMaterializationTest`, `ImageDecodePolicyTest`,
+  `ImageDecodeRequirementTest`, and `EncodedImageSourceTest`, plus focused
+  header validation and `git diff --check`.
+- Next: extend parity/failure tests, then validate those tests and deployed
+  routing at the end of milestone 2.
 - Milestone 2/final: run the P5 Java parity/failure tests, `artifactContentTest`,
   `dist -x test`, and the required macOS ARM64 Release `tcvm`/`Launcher`
   deployed smokes. Run affected image/JPEG and P1 configuration regressions.
