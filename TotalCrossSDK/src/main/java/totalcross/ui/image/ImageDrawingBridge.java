@@ -29,4 +29,14 @@ public final class ImageDrawingBridge {
     }
     return image.drawPlanForDrawing(destinationScale);
   }
+
+  /** @hidden */
+  @Deprecated
+  public static void prepareForDisplay(Image image, double destinationScale,
+      long batchGeneration, Runnable completion) {
+    ImagePreparationDiagnostics.discovered();
+    ImagePreparationRequest request = image == null ? null
+        : image.captureDisplayPreparationRequest(destinationScale, batchGeneration);
+    ImagePreparationScheduler.submit(request, completion);
+  }
 }
