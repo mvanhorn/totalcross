@@ -49,8 +49,10 @@ each milestone. The final factual handoff is
       publish a typed policy through an internal runtime hook. Confirmed the
       fixture is absent from the SDK JAR and both native smoke configurations
       pass with the production default still disabled.
-- [ ] Finish final header/diff review, write and commit the report last, then
-      push and open a PR against master. Do not merge before the P6 check.
+- [x] (2026-09-30) Final header/build/diff review and factual report are
+      complete; the report is the last source commit, followed by branch
+      publication and a PR against master. Leave it unmerged pending the P6
+      integration check.
 
 ## Current Architecture and Scope
 
