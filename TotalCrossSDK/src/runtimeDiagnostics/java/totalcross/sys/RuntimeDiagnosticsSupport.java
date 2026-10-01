@@ -8,6 +8,7 @@ package totalcross.sys;
 final class RuntimeDiagnosticsSupport {
   private static final RuntimeDiagnosticSnapshot EMPTY = RuntimeDiagnosticSnapshot.empty();
   private static volatile boolean runtimeGroupEnabled;
+  private static volatile boolean schedulingGroupEnabled;
 
   private RuntimeDiagnosticsSupport() {
   }
@@ -23,14 +24,36 @@ final class RuntimeDiagnosticsSupport {
     if (enabled) {
       RuntimeMetrics.initialize();
     }
-    runtimeGroupEnabled = enabled;
+    if (domain == RuntimeDiagnosticSnapshot.Domain.RUNTIME) {
+      runtimeGroupEnabled = enabled;
+    } else if (domain == RuntimeDiagnosticSnapshot.Domain.SCHEDULING) {
+      schedulingGroupEnabled = enabled;
+    }
+  }
+
+  static boolean isSchedulingEnabledInternal() {
+    return schedulingGroupEnabled;
+  }
+
+  static void recordFlickCallbackInternal(long positiveLatenessNanos) {
+    if (!schedulingGroupEnabled) {
+      return;
+    }
+    RuntimeMetrics.recordFlickCallback(positiveLatenessNanos);
+  }
+
+  static void recordFlickAdvancementInternal(long workNanos, boolean completed) {
+    if (!schedulingGroupEnabled) {
+      return;
+    }
+    RuntimeMetrics.recordFlickAdvancement(workNanos, completed);
   }
 
   static RuntimeDiagnosticSnapshot snapshot() {
-    if (!runtimeGroupEnabled) {
+    if (!runtimeGroupEnabled && !schedulingGroupEnabled) {
       return EMPTY;
     }
-    return RuntimeMetrics.snapshot();
+    return RuntimeMetrics.snapshot(runtimeGroupEnabled, schedulingGroupEnabled);
   }
 
   static void addJavaCounterForTest(long delta) {
@@ -79,10 +102,11 @@ final class RuntimeDiagnosticsSupport {
     if (domain == null) {
       throw new NullPointerException("domain is required");
     }
-    if (!runtimeGroupEnabled) {
+    if ((domain == RuntimeDiagnosticSnapshot.Domain.RUNTIME && !runtimeGroupEnabled)
+        || (domain == RuntimeDiagnosticSnapshot.Domain.SCHEDULING && !schedulingGroupEnabled)) {
       return;
     }
-    RuntimeMetrics.reset();
+    RuntimeMetrics.reset(domain);
   }
 
   private static final class RuntimeMetrics {
@@ -93,22 +117,13 @@ final class RuntimeDiagnosticsSupport {
     private static final int NATIVE_COUNTER_ID = 0x2001;
     private static final int NATIVE_GAUGE_ID = 0x2002;
     private static final int RUNTIME_GROUP_MASK = 1;
-    private static final int[] METRIC_IDS = {
+    private static final int FLICK_CALLBACK_COUNT_ID = 0x3001;
+    private static final int FLICK_ADVANCEMENT_COUNT_ID = 0x3002;
+    private static final int FLICK_COMPLETION_COUNT_ID = 0x3003;
+    private static final int FLICK_ADVANCEMENT_WORK_NANOS_ID = 0x3004;
+    private static final int FLICK_POSITIVE_LATENESS_NANOS_ID = 0x3005;
+    private static final int[] RUNTIME_METRIC_IDS = {
         JAVA_COUNTER_ID, JAVA_GAUGE_ID, JAVA_TIMER_ID, NATIVE_COUNTER_ID, NATIVE_GAUGE_ID
-    };
-    private static final byte[] DOMAINS = {
-        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal()
-    };
-    private static final byte[] KINDS = {
-        (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Kind.TIMER.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal()
     };
     private static final int[] NATIVE_METRIC_IDS = {NATIVE_COUNTER_ID, NATIVE_GAUGE_ID};
     private static final long[] NATIVE_VALUES = new long[NATIVE_METRIC_IDS.length];
@@ -116,6 +131,11 @@ final class RuntimeDiagnosticsSupport {
     private static long javaCounter;
     private static long javaGauge;
     private static long javaTimerNanos;
+    private static long flickCallbackCount;
+    private static long flickAdvancementCount;
+    private static long flickCompletionCount;
+    private static long flickAdvancementWorkNanos;
+    private static long flickPositiveLatenessNanos;
     private static long epoch;
     private static NativeBridge nativeBridge = new VmNativeBridge();
 
@@ -123,18 +143,60 @@ final class RuntimeDiagnosticsSupport {
       // Calling this method initializes this holder only after the group is enabled.
     }
 
-    private static RuntimeDiagnosticSnapshot snapshot() {
-      if (!runtimeGroupEnabled) {
+    private static RuntimeDiagnosticSnapshot snapshot(boolean includeRuntime, boolean includeScheduling) {
+      if (!includeRuntime && !includeScheduling) {
         return EMPTY;
       }
       synchronized (COLLECTION_LOCK) {
-        if (!runtimeGroupEnabled) {
+        includeRuntime &= runtimeGroupEnabled;
+        includeScheduling &= schedulingGroupEnabled;
+        if (!includeRuntime && !includeScheduling) {
           return EMPTY;
         }
-        nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES);
-        long[] values = {javaCounter, javaGauge, javaTimerNanos, NATIVE_VALUES[0], NATIVE_VALUES[1]};
-        return new RuntimeDiagnosticSnapshot(METRIC_IDS, DOMAINS, KINDS, values, epoch);
+        int count = (includeRuntime ? RUNTIME_METRIC_IDS.length : 0) + (includeScheduling ? 5 : 0);
+        int[] metricIds = new int[count];
+        byte[] domains = new byte[count];
+        byte[] kinds = new byte[count];
+        long[] values = new long[count];
+        int output = 0;
+        if (includeRuntime) {
+          nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES);
+          byte domain = (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal();
+          output = put(metricIds, domains, kinds, values, output, JAVA_COUNTER_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.COUNTER, javaCounter);
+          output = put(metricIds, domains, kinds, values, output, JAVA_GAUGE_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.GAUGE, javaGauge);
+          output = put(metricIds, domains, kinds, values, output, JAVA_TIMER_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.TIMER, javaTimerNanos);
+          output = put(metricIds, domains, kinds, values, output, NATIVE_COUNTER_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.COUNTER, NATIVE_VALUES[0]);
+          output = put(metricIds, domains, kinds, values, output, NATIVE_GAUGE_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.GAUGE, NATIVE_VALUES[1]);
+        }
+        if (includeScheduling) {
+          byte domain = (byte) RuntimeDiagnosticSnapshot.Domain.SCHEDULING.ordinal();
+          output = put(metricIds, domains, kinds, values, output, FLICK_CALLBACK_COUNT_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.COUNTER, flickCallbackCount);
+          output = put(metricIds, domains, kinds, values, output, FLICK_ADVANCEMENT_COUNT_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.COUNTER, flickAdvancementCount);
+          output = put(metricIds, domains, kinds, values, output, FLICK_COMPLETION_COUNT_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.COUNTER, flickCompletionCount);
+          output = put(metricIds, domains, kinds, values, output, FLICK_ADVANCEMENT_WORK_NANOS_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.TIMER, flickAdvancementWorkNanos);
+          put(metricIds, domains, kinds, values, output, FLICK_POSITIVE_LATENESS_NANOS_ID, domain,
+              RuntimeDiagnosticSnapshot.Kind.TIMER, flickPositiveLatenessNanos);
+        }
+        return new RuntimeDiagnosticSnapshot(metricIds, domains, kinds, values, epoch);
       }
+    }
+
+    private static int put(int[] metricIds, byte[] domains, byte[] kinds, long[] values, int index,
+        int metricId, byte domain, RuntimeDiagnosticSnapshot.Kind kind, long value) {
+      metricIds[index] = metricId;
+      domains[index] = domain;
+      kinds[index] = (byte) kind.ordinal();
+      values[index] = value;
+      return index + 1;
     }
 
     private static void addJavaCounter(long delta) {
@@ -183,12 +245,40 @@ final class RuntimeDiagnosticsSupport {
       }
     }
 
-    private static void reset() {
+    private static void recordFlickCallback(long positiveLatenessNanos) {
       synchronized (COLLECTION_LOCK) {
-        if (runtimeGroupEnabled) {
+        if (schedulingGroupEnabled) {
+          flickCallbackCount++;
+          flickPositiveLatenessNanos += Math.max(0L, positiveLatenessNanos);
+        }
+      }
+    }
+
+    private static void recordFlickAdvancement(long workNanos, boolean completed) {
+      synchronized (COLLECTION_LOCK) {
+        if (schedulingGroupEnabled) {
+          flickAdvancementCount++;
+          flickAdvancementWorkNanos += Math.max(0L, workNanos);
+          if (completed) {
+            flickCompletionCount++;
+          }
+        }
+      }
+    }
+
+    private static void reset(RuntimeDiagnosticSnapshot.Domain domain) {
+      synchronized (COLLECTION_LOCK) {
+        if (domain == RuntimeDiagnosticSnapshot.Domain.RUNTIME && runtimeGroupEnabled) {
           javaCounter = 0L;
           javaTimerNanos = 0L;
           nativeBridge.resetMetrics(RUNTIME_GROUP_MASK);
+          epoch++;
+        } else if (domain == RuntimeDiagnosticSnapshot.Domain.SCHEDULING && schedulingGroupEnabled) {
+          flickCallbackCount = 0L;
+          flickAdvancementCount = 0L;
+          flickCompletionCount = 0L;
+          flickAdvancementWorkNanos = 0L;
+          flickPositiveLatenessNanos = 0L;
           epoch++;
         }
       }

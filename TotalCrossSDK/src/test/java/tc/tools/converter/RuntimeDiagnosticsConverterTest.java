@@ -29,6 +29,7 @@ class RuntimeDiagnosticsConverterTest {
     assertTrue(off.contains("return RuntimeDiagnosticSnapshot.empty();"));
     assertFalse(off.contains("static native "));
     assertFalse(off.contains("runtimeGroupEnabled"));
+    assertFalse(off.contains("schedulingGroupEnabled"));
     assertFalse(off.contains("NATIVE_METRIC_IDS"));
     assertFalse(off.contains("long javaCounter"));
     assertFalse(off.contains("synchronized ("));
@@ -78,17 +79,40 @@ class RuntimeDiagnosticsConverterTest {
   void runtimeGroupGatePrecedesCollectionLockAllocationAndNativeRead() throws Exception {
     String source = Files.readString(
         Path.of("src/runtimeDiagnostics/java/totalcross/sys/RuntimeDiagnosticsSupport.java"));
-    int start = source.indexOf("static RuntimeDiagnosticSnapshot snapshot() {");
-    int gate = source.indexOf("if (!runtimeGroupEnabled)", start);
+    int start = source.indexOf("private static RuntimeDiagnosticSnapshot snapshot(boolean includeRuntime,");
+    int gate = source.indexOf("if (!includeRuntime && !includeScheduling)", start);
     int lock = source.indexOf("synchronized (COLLECTION_LOCK)", start);
     int batchRead = source.indexOf("nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES)", start);
-    int valuesAllocation = source.indexOf("long[] values =", start);
+    int valuesAllocation = source.indexOf("long[] values = new long[count]", start);
     assertTrue(start >= 0 && gate > start && lock > gate);
-    assertTrue(batchRead > lock && valuesAllocation > batchRead);
+    assertTrue(batchRead > lock && valuesAllocation > lock);
+    assertTrue(source.contains("if (!schedulingGroupEnabled)"));
     assertTrue(source.contains("if (enabled) {\n      RuntimeMetrics.initialize();"));
     assertTrue(source.contains("private static final class RuntimeMetrics"));
     assertTrue(source.contains("nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES)"));
     assertFalse(source.contains("System.nanoTime"));
+  }
+
+  @Test
+  void flickNanoTimeReadsAreBehindTheSchedulingDomainGate() throws Exception {
+    String source = Files.readString(Path.of("src/main/java/totalcross/ui/Flick.java"));
+    int reset = source.indexOf("private void resetDiagnosticTiming()");
+    int resetGate = source.indexOf("if (RuntimeDiagnostics.isSchedulingEnabledInternal())", reset);
+    int resetRead = source.indexOf("System.nanoTime()", resetGate);
+    int callback = source.indexOf("private boolean recordCallbackDiagnostics()");
+    int callbackGate = source.indexOf("if (!RuntimeDiagnostics.isSchedulingEnabledInternal())", callback);
+    int callbackRead = source.indexOf("System.nanoTime()", callbackGate);
+    int advance = source.indexOf("private void advanceAnimationFromDriver(boolean diagnosticsEnabled)");
+    int advanceGate = source.indexOf("if (!diagnosticsEnabled || !RuntimeDiagnostics.isSchedulingEnabledInternal())",
+        advance);
+    int workStart = source.indexOf("System.nanoTime()", advanceGate);
+    int workEnd = source.indexOf("System.nanoTime()", workStart + 1);
+    int motion = source.indexOf("private boolean advanceAnimation()");
+
+    assertTrue(reset >= 0 && resetGate > reset && resetRead > resetGate);
+    assertTrue(callback >= 0 && callbackGate > callback && callbackRead > callbackGate);
+    assertTrue(advance >= 0 && advanceGate > advance && workStart > advanceGate && workEnd > workStart);
+    assertTrue(motion > workEnd);
   }
 
   @Test

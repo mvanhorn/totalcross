@@ -19,6 +19,16 @@ final class RuntimeDiagnosticsSupport {
     }
   }
 
+  static boolean isSchedulingEnabledInternal() {
+    return false;
+  }
+
+  static void recordFlickCallbackInternal(long positiveLatenessNanos) {
+  }
+
+  static void recordFlickAdvancementInternal(long workNanos, boolean completed) {
+  }
+
   static RuntimeDiagnosticSnapshot snapshot() {
     return RuntimeDiagnosticSnapshot.empty();
   }

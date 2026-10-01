@@ -27,9 +27,25 @@ public final class RuntimeDiagnostics {
     RuntimeDiagnosticsSupport.setDomainEnabled(domain, enabled);
   }
 
+  /** @hidden Internal SDK gate for optional scheduling measurements. */
+  public static boolean isSchedulingEnabledInternal() {
+    return RuntimeDiagnosticsSupport.isSchedulingEnabledInternal();
+  }
+
+  /** @hidden Records one accepted Flick callback without exposing a metric key or identifier. */
+  public static void recordFlickCallbackInternal(long positiveLatenessNanos) {
+    RuntimeDiagnosticsSupport.recordFlickCallbackInternal(positiveLatenessNanos);
+  }
+
+  /** @hidden Records one Flick advancement and its synchronous work duration. */
+  public static void recordFlickAdvancementInternal(long workNanos, boolean completed) {
+    RuntimeDiagnosticsSupport.recordFlickAdvancementInternal(workNanos, completed);
+  }
+
   /**
-   * Returns an immutable snapshot. A disabled domain produces the shared empty
-   * snapshot without collecting Java or native values.
+   * Returns an immutable snapshot containing only enabled domains. When all
+   * domains are disabled, returns the shared empty snapshot without collecting
+   * Java or native values.
    */
   public static RuntimeDiagnosticSnapshot snapshot() {
     return RuntimeDiagnosticsSupport.snapshot();

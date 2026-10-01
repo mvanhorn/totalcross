@@ -6,6 +6,7 @@
 package totalcross.ui;
 
 import totalcross.sys.Settings;
+import totalcross.sys.RuntimeDiagnostics;
 import totalcross.sys.Vm;
 import totalcross.ui.event.DragEvent;
 import totalcross.ui.event.PenEvent;
@@ -125,6 +126,9 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
   private final PacingDriver pacingDriver;
   private final TestClock testClock;
   private MainWindow updateListenerWindow;
+  private long diagnosticIntervalNanos;
+  private long expectedCallbackNanoTime;
+  private boolean expectedCallbackTimeSet;
 
   // Container owning this Flick object.
   private Scrollable target;
@@ -558,6 +562,7 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
         callListeners(true, false);
         currentFlick = this;
         flickPos = 0;
+        resetDiagnosticTiming();
         if (pacingDriver == PacingDriver.TIMER_EVENT) {
           ((Control) target).addTimer(timer, 1000 / frameRate);
         } else {
@@ -616,8 +621,12 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
    */
   @Override
   public void timerTriggered(TimerEvent e) {
-    if (pacingDriver == PacingDriver.TIMER_EVENT && e == timer && !totalcross.unit.UIRobot.abort) {
-      advanceAnimation();
+    if (pacingDriver == PacingDriver.TIMER_EVENT && e == timer) {
+      boolean diagnosticsEnabled = recordCallbackDiagnostics();
+      if (totalcross.unit.UIRobot.abort) {
+        return;
+      }
+      advanceAnimationFromDriver(diagnosticsEnabled);
       e.consumed = true;
     }
   }
@@ -625,11 +634,51 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
   @Override
   public void updateListenerTriggered(int elapsedMilliseconds) {
     if (pacingDriver == PacingDriver.UPDATE_LISTENER && currentFlick == this) {
-      advanceAnimation();
+      advanceAnimationFromDriver(recordCallbackDiagnostics());
     }
   }
 
-  private void advanceAnimation() {
+  private void resetDiagnosticTiming() {
+    diagnosticIntervalNanos = (1000 / frameRate) * 1000000L;
+    expectedCallbackTimeSet = false;
+    if (RuntimeDiagnostics.isSchedulingEnabledInternal()) {
+      expectedCallbackNanoTime = System.nanoTime() + diagnosticIntervalNanos;
+      expectedCallbackTimeSet = true;
+    }
+  }
+
+  private boolean recordCallbackDiagnostics() {
+    if (!RuntimeDiagnostics.isSchedulingEnabledInternal()) {
+      expectedCallbackTimeSet = false;
+      return false;
+    }
+    long callbackNanoTime = System.nanoTime();
+    if (!expectedCallbackTimeSet) {
+      expectedCallbackNanoTime = callbackNanoTime;
+      expectedCallbackTimeSet = true;
+    }
+    long latenessNanos = callbackNanoTime - expectedCallbackNanoTime;
+    if (latenessNanos < 0) {
+      latenessNanos = 0;
+    }
+    expectedCallbackNanoTime += diagnosticIntervalNanos;
+    RuntimeDiagnostics.recordFlickCallbackInternal(latenessNanos);
+    return true;
+  }
+
+  private void advanceAnimationFromDriver(boolean diagnosticsEnabled) {
+    if (!diagnosticsEnabled || !RuntimeDiagnostics.isSchedulingEnabledInternal()) {
+      expectedCallbackTimeSet = false;
+      advanceAnimation();
+      return;
+    }
+    long startNanoTime = System.nanoTime();
+    boolean completed = advanceAnimation();
+    long workNanos = System.nanoTime() - startNanoTime;
+    RuntimeDiagnostics.recordFlickAdvancementInternal(workNanos, completed);
+  }
+
+  private boolean advanceAnimation() {
     double t = getTimeStamp() - t0;
 
     // No rounding is done, the maximum rounding error is 1 pixel.
@@ -670,7 +719,8 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
           break;
       }
     }
-    if (endReached || currentFlick == null || t > t1) // Reached the end.
+    boolean completed = endReached || currentFlick == null || t > t1;
+    if (completed) // Reached the end.
     {
       lastDragDirection = lastFlickDirection = consecutiveDragCount = 0;
       stop(false);
@@ -682,6 +732,7 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
       }
       pagepos.setPosition((p / scrollDistance) + 1);
     }
+    return completed;
   }
 
 }

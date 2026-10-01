@@ -46,8 +46,8 @@ production scheduling policy changes.
 - [x] (2026-09-30) Milestone 1: one shared Flick advancement path, internal
   TimerEvent/UpdateListener drivers, a deterministic clock seam, and 9 focused
   semantic tests passed. No native build was run.
-- [ ] Milestone 2: opt-in SCHEDULING aggregates and focused enabled/disabled
-  diagnostics tests.
+- [x] (2026-09-30) Milestone 2: appended SCHEDULING aggregates, gated
+  nanosecond measurements, and passed focused tests with diagnostics off/on.
 - [ ] Milestone 3: concise measurement harness, deployed macOS smoke, and
   requested 40 fps, 60 fps, and UpdateListener observations.
 - [ ] Milestone 4: focused SDK/native validation, audit report, final handoff,
@@ -172,6 +172,8 @@ not a Windows guarantee.
   scheduling, `lastTick`, catch-up, or event-loop waits.
 - Store metric keys privately and append the public SCHEDULING domain. Keep
   histogram, percentile, trace, and frame-array data out of production.
+- Bridge Flick to RuntimeDiagnostics through narrowly scoped internal hooks;
+  snapshots still expose only domain/kind totals, with no metric IDs or keys.
 - Keep the final report as the only editorial handoff; do not add a state file.
 
 ## Validation and Acceptance
@@ -217,11 +219,12 @@ limitations, not commit IDs, raw logs, or an execution diary.
 
 ## Outcomes & Retrospective
 
-Milestone 1 now routes both internal drivers through the same millisecond-based
-advancement body. TimerEvent remains the default, and the deterministic parity
-suite passes for both axes, scroll limits, target refusal, elapsed completion,
-page position, listener deltas, UIRobot abort, and driver cleanup. Native builds
-remain deferred until the final milestone.
+Milestone 1 routes both internal drivers through the same millisecond-based
+advancement body. The parity suite passes for both axes, scroll limits, target
+refusal, elapsed completion, page position, listener deltas, UIRobot abort, and
+driver cleanup. Milestone 2 adds bounded, opt-in SCHEDULING aggregates and
+passes focused tests in both SDK variants. TimerEvent remains the default;
+native builds remain deferred until the final milestone.
 
 ## Revision Note
 

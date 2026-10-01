@@ -35,6 +35,7 @@ class RuntimeDiagnosticsTest {
       return;
     }
     supportClass = Class.forName("totalcross.sys.RuntimeDiagnosticsSupport");
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.SCHEDULING, false);
     RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RUNTIME, true);
     runtimeMetricsClass = Class.forName("totalcross.sys.RuntimeDiagnosticsSupport$RuntimeMetrics");
     bridgeField = runtimeMetricsClass.getDeclaredField("nativeBridge");
@@ -57,14 +58,18 @@ class RuntimeDiagnosticsTest {
   void tearDown() throws Exception {
     if (supportClass != null) {
       RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RUNTIME, false);
+      RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.SCHEDULING, false);
       bridgeField.set(null, originalBridge);
     }
   }
 
   @Test
   void publicMetadataContainsDomainsAndKindsWithoutMetricKeys() {
-    assertEquals(1, RuntimeDiagnosticSnapshot.Domain.values().length);
+    assertEquals(2, RuntimeDiagnosticSnapshot.Domain.values().length);
     assertEquals("RUNTIME", RuntimeDiagnosticSnapshot.Domain.RUNTIME.name());
+    assertEquals("SCHEDULING", RuntimeDiagnosticSnapshot.Domain.SCHEDULING.name());
+    assertEquals(0, RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal());
+    assertEquals(1, RuntimeDiagnosticSnapshot.Domain.SCHEDULING.ordinal());
     assertEquals(3, RuntimeDiagnosticSnapshot.Kind.values().length);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(), 0);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal(), 1);
@@ -80,6 +85,77 @@ class RuntimeDiagnosticsTest {
     assertSame(first, second);
     assertEquals(0, first.size());
     assertFalse(RuntimeDiagnostics.isSupported());
+    assertFalse(RuntimeDiagnostics.isSchedulingEnabledInternal());
+    RuntimeDiagnostics.recordFlickCallbackInternal(10L);
+    RuntimeDiagnostics.recordFlickAdvancementInternal(20L, true);
+    assertSame(first, RuntimeDiagnostics.snapshot());
+  }
+
+  @Test
+  void disabledSchedulingDomainDoesNotChangeMetricsOrCallNativeProvider() {
+    assumeTrue(RuntimeDiagnostics.isSupported());
+    RuntimeDiagnosticSnapshot before = RuntimeDiagnostics.snapshot();
+
+    RuntimeDiagnostics.recordFlickCallbackInternal(100L);
+    RuntimeDiagnostics.recordFlickAdvancementInternal(200L, true);
+
+    assertSame(before, RuntimeDiagnostics.snapshot());
+    assertFalse(RuntimeDiagnostics.isSchedulingEnabledInternal());
+    assertEquals(0, nativeValues.batchReads);
+    assertEquals(0, nativeValues.singleReads);
+  }
+
+  @Test
+  void schedulingMetricsRecordBoundedCountersAndNonnegativeNanosecondTotals() throws Exception {
+    assumeTrue(RuntimeDiagnostics.isSupported());
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.SCHEDULING, true);
+    invoke("resetForTest", new Class<?>[] {RuntimeDiagnosticSnapshot.Domain.class},
+        RuntimeDiagnosticSnapshot.Domain.SCHEDULING);
+
+    RuntimeDiagnostics.recordFlickCallbackInternal(-10L);
+    RuntimeDiagnostics.recordFlickCallbackInternal(7L);
+    RuntimeDiagnostics.recordFlickAdvancementInternal(11L, false);
+    RuntimeDiagnostics.recordFlickAdvancementInternal(13L, true);
+    RuntimeDiagnosticSnapshot snapshot = RuntimeDiagnostics.snapshot();
+
+    assertEquals(5L, value(snapshot, RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    assertEquals(31L, value(snapshot, RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+        RuntimeDiagnosticSnapshot.Kind.TIMER));
+    assertEquals(0L, value(snapshot, RuntimeDiagnosticSnapshot.Domain.RUNTIME,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    assertEquals(0, nativeValues.batchReads);
+  }
+
+  @Test
+  void schedulingDeltaAndResetLeaveRuntimeDomainValuesAlone() throws Exception {
+    assumeTrue(RuntimeDiagnostics.isSupported());
+    enableDomain();
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.SCHEDULING, true);
+    invoke("addJavaCounterForTest", new Class<?>[] {long.class}, 4L);
+    RuntimeDiagnostics.recordFlickCallbackInternal(3L);
+    RuntimeDiagnostics.recordFlickAdvancementInternal(5L, true);
+    RuntimeDiagnosticSnapshot before = RuntimeDiagnostics.snapshot();
+
+    RuntimeDiagnostics.recordFlickCallbackInternal(2L);
+    RuntimeDiagnostics.recordFlickAdvancementInternal(7L, false);
+    RuntimeDiagnosticSnapshot after = RuntimeDiagnostics.snapshot();
+    RuntimeDiagnosticSnapshot delta = after.deltaSince(before);
+    assertEquals(2L, value(delta, RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    assertEquals(9L, value(delta, RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+        RuntimeDiagnosticSnapshot.Kind.TIMER));
+    long runtimeCounterBeforeReset = value(after, RuntimeDiagnosticSnapshot.Domain.RUNTIME,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER);
+
+    invoke("resetForTest", new Class<?>[] {RuntimeDiagnosticSnapshot.Domain.class},
+        RuntimeDiagnosticSnapshot.Domain.SCHEDULING);
+    RuntimeDiagnosticSnapshot reset = RuntimeDiagnostics.snapshot();
+    assertEquals(runtimeCounterBeforeReset, value(reset, RuntimeDiagnosticSnapshot.Domain.RUNTIME,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    assertEquals(0L, value(reset, RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    assertThrows(IllegalArgumentException.class, () -> reset.deltaSince(after));
   }
 
   @Test
@@ -226,6 +302,11 @@ class RuntimeDiagnosticsTest {
 
   private static long value(RuntimeDiagnosticSnapshot snapshot, RuntimeDiagnosticSnapshot.Kind kind) {
     return snapshot.getValue(RuntimeDiagnosticSnapshot.Domain.RUNTIME, kind);
+  }
+
+  private static long value(RuntimeDiagnosticSnapshot snapshot, RuntimeDiagnosticSnapshot.Domain domain,
+      RuntimeDiagnosticSnapshot.Kind kind) {
+    return snapshot.getValue(domain, kind);
   }
 
   private static boolean contains(int[] values, int sought) {

@@ -21,6 +21,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import totalcross.Launcher;
+import totalcross.sys.RuntimeDiagnosticSnapshot;
+import totalcross.sys.RuntimeDiagnostics;
 import totalcross.ui.event.DragEvent;
 import totalcross.ui.event.PenEvent;
 import totalcross.ui.event.TimerEvent;
@@ -42,6 +44,7 @@ class FlickPacingTest {
     Flick.currentFlick = null;
     Flick.isDragging = false;
     totalcross.unit.UIRobot.abort = false;
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.SCHEDULING, false);
   }
 
   @Test
@@ -52,6 +55,14 @@ class FlickPacingTest {
     assertEquals(40, fixture.flick.frameRate);
     assertEquals(25, fixture.flick.timer.millis);
     assertTrue(hasTimer(fixture.flick.timer));
+  }
+
+  @Test
+  void sixtyFpsKeepsTheExistingIntegerSixteenMillisecondTimer() {
+    Fixture fixture = start(Flick.PacingDriver.TIMER_EVENT, DragEvent.DOWN, 0, 0, 60);
+
+    assertEquals(60, fixture.flick.frameRate);
+    assertEquals(16, fixture.flick.timer.millis);
   }
 
   @Test
@@ -89,20 +100,22 @@ class FlickPacingTest {
 
   @Test
   void scrollDistanceCapsMotionAndUpdatesPagePosition() {
-    Fixture fixture = start(Flick.PacingDriver.TIMER_EVENT, DragEvent.DOWN, 100, 190);
-    PagePosition pagePosition = new PagePosition(4);
-    fixture.flick.setPagePosition(pagePosition);
+    for (Flick.PacingDriver driver : Flick.PacingDriver.values()) {
+      Fixture fixture = start(driver, DragEvent.DOWN, 100, 190);
+      PagePosition pagePosition = new PagePosition(4);
+      fixture.flick.setPagePosition(pagePosition);
 
-    fixture.clock.now = 3500;
-    fixture.flick.timerTriggered(fixture.flick.timer);
-    assertEquals(1, fixture.target.deltas.size());
-    assertArrayEquals(new int[] {0, -90}, fixture.target.deltas.get(0));
-    assertEquals(2, pagePosition.getPosition());
+      fixture.clock.now = 3500;
+      tick(fixture, driver, 2500);
+      assertEquals(1, fixture.target.deltas.size());
+      assertArrayEquals(new int[] {0, -90}, fixture.target.deltas.get(0));
+      assertEquals(2, pagePosition.getPosition());
 
-    fixture.clock.now = 3501;
-    fixture.flick.timerTriggered(fixture.flick.timer);
-    assertNull(Flick.currentFlick);
-    assertEquals(2, pagePosition.getPosition());
+      fixture.clock.now = 3501;
+      tick(fixture, driver, 2501);
+      assertNull(Flick.currentFlick);
+      assertEquals(2, pagePosition.getPosition());
+    }
   }
 
   @Test
@@ -187,6 +200,28 @@ class FlickPacingTest {
     }
   }
 
+  @Test
+  void enabledSchedulingDiagnosticsCountBothDriversAndTheirAdvancementWork() {
+    org.junit.jupiter.api.Assumptions.assumeTrue(RuntimeDiagnostics.isSupported());
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.SCHEDULING, true);
+
+    for (Flick.PacingDriver driver : Flick.PacingDriver.values()) {
+      RuntimeDiagnosticSnapshot before = RuntimeDiagnostics.snapshot();
+      Fixture fixture = start(driver, DragEvent.DOWN, 0, 0);
+      fixture.clock.now = 1250;
+      tick(fixture, driver, 250);
+      fixture.clock.now = 2001;
+      tick(fixture, driver, 1001);
+      RuntimeDiagnosticSnapshot delta = RuntimeDiagnostics.snapshot().deltaSince(before);
+
+      assertEquals(5L, delta.getValue(RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+          RuntimeDiagnosticSnapshot.Kind.COUNTER));
+      assertTrue(delta.getValue(RuntimeDiagnosticSnapshot.Domain.SCHEDULING,
+          RuntimeDiagnosticSnapshot.Kind.TIMER) > 0L);
+      assertNull(Flick.currentFlick);
+    }
+  }
+
   private static Result runSequence(Flick.PacingDriver driver, int direction) {
     Fixture fixture = start(driver, direction, 0, 0);
     int[] absoluteTimes = {1250, 1500, 1750, 2001};
@@ -202,6 +237,11 @@ class FlickPacingTest {
 
   private static Fixture start(Flick.PacingDriver driver, int direction, int scrollDistance,
       int initialScrollPosition) {
+    return start(driver, direction, scrollDistance, initialScrollPosition, 40);
+  }
+
+  private static Fixture start(Flick.PacingDriver driver, int direction, int scrollDistance,
+      int initialScrollPosition, int frameRate) {
     ManualClock clock = new ManualClock();
     clock.now = 1000;
     RecordingScrollable target = new RecordingScrollable();
@@ -211,7 +251,7 @@ class FlickPacingTest {
       target.scrollX = initialScrollPosition;
     }
     Flick flick = new Flick(target, driver, clock);
-    flick.frameRate = 40;
+    flick.frameRate = frameRate;
     if (scrollDistance != 0) {
       flick.setScrollDistance(scrollDistance);
     }
