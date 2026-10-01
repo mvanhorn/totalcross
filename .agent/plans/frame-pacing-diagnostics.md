@@ -44,20 +44,26 @@ production scheduling policy changes.
 - [x] (2026-09-30) Created isolated branch `feat/frame-pacing-diagnostics`
   from fetched `origin/master`; confirmed the baseline invariants below.
 - [x] (2026-09-30) Milestone 1: one shared Flick advancement path, internal
-  TimerEvent/UpdateListener drivers, a deterministic clock seam, and 10 focused
+  TimerEvent/UpdateListener drivers, a deterministic clock seam, and 11 focused
   semantic tests passed. No native build was run.
 - [x] (2026-09-30) Milestone 2: appended SCHEDULING aggregates, gated
   nanosecond measurements, and passed focused tests with diagnostics off/on.
-- [ ] Milestone 3: concise measurement harness, deployed macOS smoke, and
-  requested 40 fps, 60 fps, and UpdateListener observations.
-  The harness and Gradle deploy/run tasks compile; deployed execution and
-  measurements remain pending.
+- [x] (2026-09-30) Milestone 3: deployed macOS smoke passed with TimerEvent
+  default/diagnostics-off baseline, two diagnostics-on runs each at TimerEvent
+  40 fps, TimerEvent 60 fps, and UpdateListener, plus a diagnostics-off repeat.
+  The harness reports callback, advancement, completion, work, positive
+  lateness, duration, requested cadence, and final scroll position.
 - [ ] Milestone 4: focused SDK/native validation, audit report, final handoff,
   ordered commits, push, and pull request against `master`.
-  Diagnostics-off `dist -x test` and `artifactContentTest -x test` pass. The
-  unexcluded artifact task pulled in the full `:test` task, which reported one
-  unrelated `SlidingWindowSafeAreaTest` null-array failure (439 of 440 passed).
-  Focused Flick/diagnostics tests passed with diagnostics both off and on.
+  Diagnostics-off `dist -x test`, diagnostics-on `dist -x test`, and
+  `artifactContentTest -x test` pass. An unexcluded artifact run invoked the
+  full test suite and hit a suite-order `SlidingWindowSafeAreaTest` null-array
+  failure (440 completed, 1 failed, 12 skipped); that test passes in isolation.
+  Focused Flick, ScrollContainer, diagnostics, and converter suites pass with
+  diagnostics off and on. Release macOS ARM64 `tcvm` and `Launcher` builds and
+  the deployed P11 smoke pass. The baseline has no separate Flick/
+  ScrollContainer deployed smoke or standalone MainWindow TimerEvent/
+  UpdateListener tests; the P11 workload and focused tests cover these paths.
 
 ## Current Architecture and Scope
 
