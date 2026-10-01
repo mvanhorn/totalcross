@@ -24,7 +24,8 @@ worktree is left untouched.
 
 ## Working Set and Resume Protocol
 
-This is a single-file plan with no `.agent/state` file, as requested. Read this
+This is a single-file plan and adds no `.agent/state` file, as requested.
+Pre-existing `.agent/state` files from the base remain untouched. Read this
 plan's `Progress` and active `Plan of Work` item first when resuming, then inspect
 only the listed active source paths and current Git status for those paths. The
 final handoff is `.agent/reports/image-lazy-jpeg.md`; read it after implementation
@@ -47,8 +48,16 @@ are summarized in the report.
   declarations, and path-reading handlers. Milestone 1 focused SDK tests passed:
   36 tests across policy, decode requirement, encoded source, and lazy
   materialization suites (log: `/tmp/image-lazy-jpeg-m1-tests.log`).
-- [ ] Add remaining materialization parity/failure coverage and durable deployed
-  macOS smokes; run final SDK/artifact and macOS validation.
+- [x] (2026-09-30) Added parity/lifetime/failure tests, the deployed lazy JPEG
+  smoke, and native routing assertions. Focused image/JPEG/ABI/P1 regressions
+  passed: 152 tests, 20 suites, 0 failures/errors/skips
+  (`/tmp/image-lazy-jpeg-regressions.log`). `artifactContentTest` and
+  `dist -x test` passed. macOS ARM64 Release `tcvm`/`Launcher` built in
+  `/tmp/image-lazy-jpeg-macos-arm64-release`; the lazy factory smoke, JPEG
+  pinch/modifier smokes, and all six image runtime configuration smokes passed.
+  Initial configure needed manifest-pinned QRCodeGen/SQLite3 release tags because
+  checked-in CMake defaults referenced older tags. The generic image smoke
+  deploy helper now stages supplied native SDK inputs into its isolated root.
 - [ ] Run the specified SDK and macOS validations, write and commit the final
   report, push the branch, and open a PR against `master` without merging.
 
@@ -100,7 +109,7 @@ and public descriptors match current behavior; deleting or replacing the source
 file after return does not change the materialized pixels. Milestone 1 is proven
 by the 36 passing focused tests recorded in `Progress`.
 
-### 2. Route deployed factories through Java and validate semantics — active
+### 2. Route deployed factories through Java and validate semantics — complete
 
 Remove public replacement annotations, NativeMethods entries/prototypes, and C
 handlers for only `getJpegBestFit` and `getJpegScaled`. Keep private decode
@@ -117,7 +126,7 @@ source; deterministic `ImageException` is reused; transient failures and
 `OutOfMemoryError` are not permanently cached; native ABI registration has no
 stale public factory entries.
 
-### 3. Final integration and handoff
+### 3. Final integration and handoff — active
 
 Run the focused SDK tests at milestone closure, then the specified artifact
 content check and `dist -x test`. Build only the macOS ARM64 Release `tcvm` and
@@ -149,11 +158,17 @@ Then check the complete branch diff/status/history, push
   `ImageLazyMaterializationTest`, `ImageDecodePolicyTest`,
   `ImageDecodeRequirementTest`, and `EncodedImageSourceTest`, plus focused
   header validation and `git diff --check`.
-- Next: extend parity/failure tests, then validate those tests and deployed
-  routing at the end of milestone 2.
-- Milestone 2/final: run the P5 Java parity/failure tests, `artifactContentTest`,
-  `dist -x test`, and the required macOS ARM64 Release `tcvm`/`Launcher`
-  deployed smokes. Run affected image/JPEG and P1 configuration regressions.
+- Milestone 2: 152 tests passed across 20 focused image/JPEG/ABI/P1 suites;
+  `artifactContentTest` and `dist -x test` passed. The macOS ARM64 Release
+  `tcvm` and `Launcher` built. The deployed factory smoke proved deferred
+  return, tier parity, replacement/deletion lifetime, deterministic failure
+  caching, transient retry, Java factory routing, and private native decoding.
+  JPEG pinch/modifier and six P1 image runtime configuration smokes passed.
+  Logs: `/tmp/image-lazy-jpeg-regressions.log`,
+  `/tmp/image-lazy-jpeg-artifacts.log`, `/tmp/image-lazy-jpeg-dist.log`,
+  `/tmp/image-lazy-jpeg-macos-build.log`,
+  `/tmp/image-lazy-jpeg-factory-macos-parity-final.log`, and
+  `/tmp/image-lazy-jpeg-related-macos-smokes.log`.
 - Final audit: `git diff --check origin/master...HEAD`, scoped worktree review,
   and ordered `git log --oneline --reverse origin/master..HEAD`.
 - Costly platform builds outside SDK and macOS are explicitly deferred by the

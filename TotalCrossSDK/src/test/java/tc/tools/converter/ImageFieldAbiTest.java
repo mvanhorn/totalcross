@@ -56,7 +56,8 @@ class ImageFieldAbiTest {
         "changeColorsNative", "getPixelRowNative", "setTransparentColorNative", "freeTextureNative", "createJpgNative",
         "applyColorNative", "applyColor2Native", "applyFadeNative", "decodeEncodedSource",
         "failNextNativeMaterializationForTestNative", "nativeResizeJpeg",
-        "getJpegBestFit", "getJpegScaled", "getModifiedNative");
+        "getModifiedNative");
+    assertJavaMethods(converted, "getJpegBestFit", "getJpegScaled");
   }
 
   private static TCClass convertDirectImage() throws Exception {
@@ -96,6 +97,15 @@ class ImageFieldAbiTest {
         }
       }
       assertTrue(found, "converted method " + name + " must be native");
+    }
+  }
+
+  private static void assertJavaMethods(TCClass converted, String... names) {
+    for (String name : names) {
+      TCMethod method = findMethod(converted, name);
+      assertNotNull(method, "converted method " + name + " must exist");
+      assertTrue(!method.flags.isNative, "converted method " + name + " must use its Java implementation");
+      assertNotNull(method.code, "Java method " + name + " must retain executable code");
     }
   }
 
