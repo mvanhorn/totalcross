@@ -30,8 +30,17 @@ public final class ImageRuntimePolicy {
 
   private ImageRuntimePolicy(ImageStorageProfile requestedStorageProfile,
       ImageStorageProfile effectiveStorageProfile, String storageReason, List<String> matchedRuleNames) {
+    this(requestedStorageProfile, effectiveStorageProfile, storageReason, matchedRuleNames, DEFAULT_SCROLL_REUSE);
+  }
+
+  ImageRuntimePolicy(ImageStorageProfile requestedStorageProfile,
+      ImageStorageProfile effectiveStorageProfile, String storageReason, List<String> matchedRuleNames,
+      ScrollRasterReusePolicy scrollRasterReuse) {
     if (requestedStorageProfile == null || effectiveStorageProfile == null || matchedRuleNames == null) {
       throw new IllegalArgumentException("an Image policy requires requested and effective storage values");
+    }
+    if (scrollRasterReuse == null) {
+      throw new IllegalArgumentException("an Image policy requires a scroll-raster-reuse policy");
     }
     this.requestedStorageProfile = requestedStorageProfile;
     this.effectiveStorageProfile = effectiveStorageProfile;
@@ -39,7 +48,7 @@ public final class ImageRuntimePolicy {
     this.matchedRuleNames = Collections.unmodifiableList(new ArrayList<String>(matchedRuleNames));
     this.rasterCore = DEFAULT_RASTER_CORE;
     this.rasterVariants = DEFAULT_RASTER_VARIANTS;
-    this.scrollRasterReuse = DEFAULT_SCROLL_REUSE;
+    this.scrollRasterReuse = scrollRasterReuse;
     this.imagePreparation = DEFAULT_PREPARATION;
     this.prefetchWorker = DEFAULT_PREFETCH_WORKER;
   }
@@ -178,7 +187,7 @@ public final class ImageRuntimePolicy {
   public static final class ScrollRasterReusePolicy {
     private final boolean enabled;
 
-    private ScrollRasterReusePolicy(boolean enabled) {
+    ScrollRasterReusePolicy(boolean enabled) {
       this.enabled = enabled;
     }
 

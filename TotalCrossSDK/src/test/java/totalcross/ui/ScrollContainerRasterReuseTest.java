@@ -23,6 +23,7 @@ import totalcross.sys.RuntimeDiagnosticSnapshot;
 import totalcross.sys.RuntimeDiagnostics;
 import totalcross.sys.Settings;
 import totalcross.sys.runtime.RuntimeConfigurationStartup;
+import totalcross.sys.runtime.ScrollRasterReuseTestSupport;
 import totalcross.ui.gfx.Graphics;
 
 class ScrollContainerRasterReuseTest {
@@ -67,13 +68,13 @@ class ScrollContainerRasterReuseTest {
     Graphics.configureMainWindowSurface(screenWidth, screenHeight, 1);
     Settings.fingerTouch = false;
     selectBackend(GraphicsBackend.RASTER);
-    ScrollRasterReuse.setEnabledForTest(true);
+    ScrollRasterReuseTestSupport.setEnabled(true);
   }
 
   @AfterEach
   void restoreFeature() {
     Settings.fingerTouch = oldFingerTouch;
-    ScrollRasterReuse.setEnabledForTest(oldPolicy);
+    ScrollRasterReuseTestSupport.setEnabled(oldPolicy);
     if (currentFixture != null) {
       mainWindow.remove(currentFixture.sc);
       currentFixture = null;
@@ -159,7 +160,7 @@ class ScrollContainerRasterReuseTest {
   @Test
   void policyDisabledPathKeepsTheExistingFullRepaint() {
     Fixture fixture = new Fixture();
-    ScrollRasterReuse.setEnabledForTest(false);
+    ScrollRasterReuseTestSupport.setEnabled(false);
     Window.needsPaint = false;
 
     fixture.sc.scrollContent(0, 3, true);

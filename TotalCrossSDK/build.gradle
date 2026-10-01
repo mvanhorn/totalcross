@@ -955,6 +955,7 @@ tasks.register('compileScrollRasterReuseSmoke', Sync) {
     dependsOn sourceSets.smokeTest.classesTaskName
     from(smokeTestClassesDir) {
         include 'totalcross/ui/ScrollRasterReuseSmokeApp*.class'
+        include 'totalcross/sys/runtime/ScrollRasterReuseTestSupport.class'
     }
     into scrollRasterReuseSmokeClassesDir
 }

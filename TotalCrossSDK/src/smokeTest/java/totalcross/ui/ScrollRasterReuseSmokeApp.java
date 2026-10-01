@@ -7,6 +7,7 @@ package totalcross.ui;
 import java.util.Arrays;
 
 import totalcross.sys.Settings;
+import totalcross.sys.runtime.ScrollRasterReuseTestSupport;
 import totalcross.ui.event.TimerEvent;
 import totalcross.ui.event.TimerListener;
 import totalcross.ui.gfx.Coord;
@@ -65,7 +66,7 @@ public final class ScrollRasterReuseSmokeApp extends MainWindow {
     String failure = "";
     try {
       require(defaultOff, "P7 policy defaults off");
-      ScrollRasterReuse.setEnabledForTest(false);
+      ScrollRasterReuseTestSupport.setEnabled(false);
       repaintFull();
       Window.needsPaint = false;
       scroll.scrollContent(0, 3, true);
@@ -75,7 +76,7 @@ public final class ScrollRasterReuseSmokeApp extends MainWindow {
       disabledPath = matchesForcedFullPaint();
       require(disabledPath, "disabled path matches full repaint");
 
-      ScrollRasterReuse.setEnabledForTest(true);
+      ScrollRasterReuseTestSupport.setEnabled(true);
       scroll.sbV.setVisible(false);
       if (scroll.sbH != null) {
         scroll.sbH.setVisible(false);
@@ -112,6 +113,7 @@ public final class ScrollRasterReuseSmokeApp extends MainWindow {
       failure = smokeFailure.toString();
     } finally {
       ScrollRasterReuse.resetTestHooks();
+      ScrollRasterReuseTestSupport.setEnabled(false);
     }
     boolean pass = defaultOff && disabledPath && enabledDown && enabledUp && nearViewport && recoveredFailure
         && failure.length() == 0;
@@ -327,6 +329,7 @@ public final class ScrollRasterReuseSmokeApp extends MainWindow {
     System.out.println("fixture=ScrollRasterReuseSmokeApp,overallPass=" + pass + ",failure="
         + detail.replace(' ', '_'));
     ScrollRasterReuse.resetTestHooks();
+    ScrollRasterReuseTestSupport.setEnabled(false);
     exit(pass ? 0 : 1);
   }
 }

@@ -45,6 +45,10 @@ each milestone. The final factual handoff is
 - [x] (2026-09-30) Added rendering-domain aggregate counters and a deployed Image
       scroll smoke. The legacy macOS primitive passed direct positive/negative
       physical-row checks; enabled scroll steps matched full repaint.
+- [x] (2026-09-30) Moved policy enablement to source-set-only test fixtures that
+      publish a typed policy through an internal runtime hook. Confirmed the
+      fixture is absent from the SDK JAR and both native smoke configurations
+      pass with the production default still disabled.
 - [ ] Finish final header/diff review, write and commit the report last, then
       push and open a PR against master. Do not merge before the P6 check.
 
@@ -190,8 +194,9 @@ review against origin/master.
   > 1 is rejected before the move.
 - Window.needsPaint is checked before planning and native Context dirty bounds
   are checked under the screen lock; either conflict selects a full repaint.
-- The smoke source set enables the package-private test policy and is packaged
-  only by verification tasks; no application-facing switch is added.
+- The policy-enabling fixture is source-set-only and staged only with
+  verification smoke applications; the distributable SDK JAR has no test
+  fixture class or public enable switch.
 - P6 is not merged in the fetched base. Rebase and interaction validation are
   a required pre-merge follow-up if that state changes.
 
