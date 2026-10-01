@@ -120,16 +120,19 @@ class FlickPacingTest {
 
   @Test
   void listenerReceivesTheSameScrollDeltasAsTheTarget() {
-    Fixture fixture = start(Flick.PacingDriver.UPDATE_LISTENER, DragEvent.RIGHT, 0, 0);
-    RecordingScrollable listener = new RecordingScrollable();
-    fixture.flick.addScrollableListener(listener);
+    for (Flick.PacingDriver driver : Flick.PacingDriver.values()) {
+      Fixture fixture = start(driver, DragEvent.RIGHT, 0, 0);
+      RecordingScrollable listener = new RecordingScrollable();
+      fixture.flick.addScrollableListener(listener);
 
-    fixture.clock.now = 1250;
-    fixture.flick.updateListenerTriggered(250);
+      fixture.clock.now = 1250;
+      tick(fixture, driver, 250);
 
-    assertEquals(fixture.target.deltas.size(), listener.deltas.size());
-    for (int i = 0; i < fixture.target.deltas.size(); i++) {
-      assertArrayEquals(fixture.target.deltas.get(i), listener.deltas.get(i));
+      assertEquals(fixture.target.deltas.size(), listener.deltas.size());
+      for (int i = 0; i < fixture.target.deltas.size(); i++) {
+        assertArrayEquals(fixture.target.deltas.get(i), listener.deltas.get(i));
+      }
+      fixture.flick.stop(false);
     }
   }
 
