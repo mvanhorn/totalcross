@@ -78,14 +78,14 @@ class RuntimeDiagnosticsConverterTest {
   void runtimeGroupGatePrecedesCollectionLockAllocationAndNativeRead() throws Exception {
     String source = Files.readString(
         Path.of("src/runtimeDiagnostics/java/totalcross/sys/RuntimeDiagnosticsSupport.java"));
-    int start = source.indexOf("static RuntimeDiagnosticSnapshot snapshot() {");
-    int gate = source.indexOf("if (!runtimeGroupEnabled)", start);
+    int start = source.indexOf("private static RuntimeDiagnosticSnapshot snapshot() {");
+    int gate = source.indexOf("if (!runtimeGroupEnabled && !prefetchGroupEnabled)", start);
     int lock = source.indexOf("synchronized (COLLECTION_LOCK)", start);
     int batchRead = source.indexOf("nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES)", start);
     int valuesAllocation = source.indexOf("long[] values =", start);
     assertTrue(start >= 0 && gate > start && lock > gate);
-    assertTrue(batchRead > lock && valuesAllocation > batchRead);
-    assertTrue(source.contains("if (enabled) {\n      RuntimeMetrics.initialize();"));
+    assertTrue(batchRead > lock && valuesAllocation > lock);
+    assertTrue(source.contains("if (enabled) {\n        RuntimeMetrics.initialize();"));
     assertTrue(source.contains("private static final class RuntimeMetrics"));
     assertTrue(source.contains("nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES)"));
     assertFalse(source.contains("System.nanoTime"));

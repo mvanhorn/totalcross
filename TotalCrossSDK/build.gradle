@@ -1297,6 +1297,20 @@ registerImageMacSmoke('ImageLazyJpegFactory', 'ImageLazyJpegFactorySmokeApp',
         'overallPass=true'
     ])
 
+registerImageMacSmoke('ImageAsyncPreparation', 'ImageAsyncPreparationSmokeApp',
+    'image-async-preparation-smoke', false, false, [
+        'fixture=ImageAsyncPreparationSmokeApp',
+        'explicitPreparation=true',
+        'capturedPathDeleted=true',
+        'staleBatch=true',
+        'staleRequest=true',
+        'transientRetry=true',
+        'deterministicFailure=true',
+        'uiAdoption=true',
+        'drawReuse=true',
+        'overallPass=true'
+    ])
+
 tasks.named('processSmokeTestResources') {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

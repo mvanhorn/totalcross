@@ -18,6 +18,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
+import totalcross.ui.image.ImageDrawingBridge;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,12 +65,37 @@ class RuntimeDiagnosticsTest {
 
   @Test
   void publicMetadataContainsDomainsAndKindsWithoutMetricKeys() {
-    assertEquals(1, RuntimeDiagnosticSnapshot.Domain.values().length);
+    assertEquals(2, RuntimeDiagnosticSnapshot.Domain.values().length);
     assertEquals("RUNTIME", RuntimeDiagnosticSnapshot.Domain.RUNTIME.name());
+    assertEquals("PREFETCH", RuntimeDiagnosticSnapshot.Domain.PREFETCH.name());
+    assertEquals(0, RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal());
+    assertEquals(1, RuntimeDiagnosticSnapshot.Domain.PREFETCH.ordinal());
     assertEquals(3, RuntimeDiagnosticSnapshot.Kind.values().length);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(), 0);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal(), 1);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.TIMER.ordinal(), 2);
+  }
+
+  @Test
+  void prefetchDomainCollectsOnlyAggregateFeatureValues() {
+    assumeTrue(RuntimeDiagnostics.isSupported());
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.PREFETCH, true);
+    final int[] completions = {0};
+    ImageDrawingBridge.prepareForDisplay(null, 1.0, 1L, new Runnable() {
+      @Override
+      public void run() {
+        completions[0]++;
+      }
+    });
+
+    RuntimeDiagnosticSnapshot snapshot = RuntimeDiagnostics.snapshot();
+    assertEquals(1, completions[0]);
+    assertEquals(2L, snapshot.getValue(RuntimeDiagnosticSnapshot.Domain.PREFETCH,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    assertEquals(0L, snapshot.getValue(RuntimeDiagnosticSnapshot.Domain.PREFETCH,
+        RuntimeDiagnosticSnapshot.Kind.GAUGE));
+    assertEquals(0, nativeValues.batchReads);
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.PREFETCH, false);
   }
 
   @Test

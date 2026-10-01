@@ -21,9 +21,9 @@ The source of truth for the feature contract is the user-provided `Q-P8-async-im
 ## Progress
 
 - [x] (2026-09-30) Created `feat/image-async-prefetch` in an isolated worktree from fetched P5 head `b5a12be39`; verified lazy JPEG factories, typed decode policy, captured encoded source, decoded generation, and drawing resolution are present.
-- [ ] Identity and discovery: add UI hierarchy hooks, visible clip discovery, immutable Image request snapshot, readiness, and the sole public ScrollContainer operation.
-- [ ] Detached preparation and adoption: JPEG worker preparation, process-global FIFO/dedupe, stale and failure handling, UI callbacks.
-- [ ] Diagnostics and tests: aggregate PREFETCH metrics, focused lifecycle coverage, artifact boundary and deployed macOS smokes.
+- [x] (2026-09-30) Identity and discovery: added hierarchy hooks, clipped visible-image discovery, immutable request snapshots/readiness, and the sole public operation `ScrollContainer.prepareForDisplay(Runnable)`.
+- [x] (2026-09-30) Detached preparation and adoption: added JPEG worker preparation, bounded process-global FIFO/dedupe, stale/failure handling, and UI-thread callbacks.
+- [x] (2026-09-30) Diagnostics and tests: added aggregate PREFETCH metrics, lifecycle and queue-bound tests, artifact-boundary validation, and deployed macOS smokes.
 - [ ] Finalize validation, editorial report, ordered commits, push, and stacked PR targeting P5.
 
 ## Current Architecture and Scope
@@ -100,7 +100,7 @@ The implementation worktree is `/Users/flsobral/repos/totalcross-image-async-pre
 
 ## Outcomes & Retrospective
 
-Pending implementation.
+Implementation and planned validation are complete. The pending registry is capped at 128 identities; requests beyond the cap settle as transient so a later explicit batch may retry them. Final report, ordered commits, push, and stacked PR remain.
 
 ## Revision Note
 
