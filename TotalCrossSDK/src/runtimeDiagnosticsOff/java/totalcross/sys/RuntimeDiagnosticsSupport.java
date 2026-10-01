@@ -22,4 +22,16 @@ final class RuntimeDiagnosticsSupport {
   static RuntimeDiagnosticSnapshot snapshot() {
     return RuntimeDiagnosticSnapshot.empty();
   }
+
+  static void recordRenderingReuseAttempt() {
+  }
+
+  static void recordRenderingReuseSuccess() {
+  }
+
+  static void recordRenderingReuseFallback() {
+  }
+
+  static void recordRenderingMoveRecovered() {
+  }
 }

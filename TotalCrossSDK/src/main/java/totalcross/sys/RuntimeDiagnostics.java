@@ -34,4 +34,24 @@ public final class RuntimeDiagnostics {
   public static RuntimeDiagnosticSnapshot snapshot() {
     return RuntimeDiagnosticsSupport.snapshot();
   }
+
+  /** Internal renderer event hook. Metric identifiers remain private to diagnostics support. */
+  public static void recordRenderingReuseAttempt() {
+    RuntimeDiagnosticsSupport.recordRenderingReuseAttempt();
+  }
+
+  /** Internal renderer event hook. Metric identifiers remain private to diagnostics support. */
+  public static void recordRenderingReuseSuccess() {
+    RuntimeDiagnosticsSupport.recordRenderingReuseSuccess();
+  }
+
+  /** Internal renderer event hook. Metric identifiers remain private to diagnostics support. */
+  public static void recordRenderingReuseFallback() {
+    RuntimeDiagnosticsSupport.recordRenderingReuseFallback();
+  }
+
+  /** Internal renderer event hook. Metric identifiers remain private to diagnostics support. */
+  public static void recordRenderingMoveRecovered() {
+    RuntimeDiagnosticsSupport.recordRenderingMoveRecovered();
+  }
 }

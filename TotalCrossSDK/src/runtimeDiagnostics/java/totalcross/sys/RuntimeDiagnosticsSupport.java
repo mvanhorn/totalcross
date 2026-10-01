@@ -8,6 +8,7 @@ package totalcross.sys;
 final class RuntimeDiagnosticsSupport {
   private static final RuntimeDiagnosticSnapshot EMPTY = RuntimeDiagnosticSnapshot.empty();
   private static volatile boolean runtimeGroupEnabled;
+  private static volatile boolean renderingGroupEnabled;
 
   private RuntimeDiagnosticsSupport() {
   }
@@ -20,17 +21,45 @@ final class RuntimeDiagnosticsSupport {
     if (domain == null) {
       throw new NullPointerException("domain is required");
     }
+    if (domain == RuntimeDiagnosticSnapshot.Domain.RUNTIME) {
+      runtimeGroupEnabled = enabled;
+    } else if (domain == RuntimeDiagnosticSnapshot.Domain.RENDERING) {
+      renderingGroupEnabled = enabled;
+    }
     if (enabled) {
       RuntimeMetrics.initialize();
     }
-    runtimeGroupEnabled = enabled;
   }
 
   static RuntimeDiagnosticSnapshot snapshot() {
-    if (!runtimeGroupEnabled) {
+    if (!runtimeGroupEnabled && !renderingGroupEnabled) {
       return EMPTY;
     }
     return RuntimeMetrics.snapshot();
+  }
+
+  static void recordRenderingReuseAttempt() {
+    if (renderingGroupEnabled) {
+      RuntimeMetrics.addRenderingCounter(0);
+    }
+  }
+
+  static void recordRenderingReuseSuccess() {
+    if (renderingGroupEnabled) {
+      RuntimeMetrics.addRenderingCounter(1);
+    }
+  }
+
+  static void recordRenderingReuseFallback() {
+    if (renderingGroupEnabled) {
+      RuntimeMetrics.addRenderingCounter(2);
+    }
+  }
+
+  static void recordRenderingMoveRecovered() {
+    if (renderingGroupEnabled) {
+      RuntimeMetrics.addRenderingCounter(3);
+    }
   }
 
   static void addJavaCounterForTest(long delta) {
@@ -79,10 +108,10 @@ final class RuntimeDiagnosticsSupport {
     if (domain == null) {
       throw new NullPointerException("domain is required");
     }
-    if (!runtimeGroupEnabled) {
+    if (!runtimeGroupEnabled && !renderingGroupEnabled) {
       return;
     }
-    RuntimeMetrics.reset();
+    RuntimeMetrics.reset(domain);
   }
 
   private static final class RuntimeMetrics {
@@ -92,23 +121,36 @@ final class RuntimeDiagnosticsSupport {
     private static final int JAVA_TIMER_ID = 0x1003;
     private static final int NATIVE_COUNTER_ID = 0x2001;
     private static final int NATIVE_GAUGE_ID = 0x2002;
+    private static final int REUSE_ATTEMPT_ID = 0x3001;
+    private static final int REUSE_SUCCESS_ID = 0x3002;
+    private static final int REUSE_FALLBACK_ID = 0x3003;
+    private static final int MOVE_RECOVERED_ID = 0x3004;
     private static final int RUNTIME_GROUP_MASK = 1;
     private static final int[] METRIC_IDS = {
-        JAVA_COUNTER_ID, JAVA_GAUGE_ID, JAVA_TIMER_ID, NATIVE_COUNTER_ID, NATIVE_GAUGE_ID
+        JAVA_COUNTER_ID, JAVA_GAUGE_ID, JAVA_TIMER_ID, NATIVE_COUNTER_ID, NATIVE_GAUGE_ID,
+        REUSE_ATTEMPT_ID, REUSE_SUCCESS_ID, REUSE_FALLBACK_ID, MOVE_RECOVERED_ID
     };
     private static final byte[] DOMAINS = {
         (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
         (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
         (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
         (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal()
+        (byte) RuntimeDiagnosticSnapshot.Domain.RUNTIME.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Domain.RENDERING.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Domain.RENDERING.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Domain.RENDERING.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Domain.RENDERING.ordinal()
     };
     private static final byte[] KINDS = {
         (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
         (byte) RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal(),
         (byte) RuntimeDiagnosticSnapshot.Kind.TIMER.ordinal(),
         (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
-        (byte) RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal()
+        (byte) RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(),
+        (byte) RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal()
     };
     private static final int[] NATIVE_METRIC_IDS = {NATIVE_COUNTER_ID, NATIVE_GAUGE_ID};
     private static final long[] NATIVE_VALUES = new long[NATIVE_METRIC_IDS.length];
@@ -116,6 +158,10 @@ final class RuntimeDiagnosticsSupport {
     private static long javaCounter;
     private static long javaGauge;
     private static long javaTimerNanos;
+    private static long reuseAttempts;
+    private static long reuseSuccesses;
+    private static long reuseFallbacks;
+    private static long moveRecovered;
     private static long epoch;
     private static NativeBridge nativeBridge = new VmNativeBridge();
 
@@ -124,15 +170,33 @@ final class RuntimeDiagnosticsSupport {
     }
 
     private static RuntimeDiagnosticSnapshot snapshot() {
-      if (!runtimeGroupEnabled) {
+      if (!runtimeGroupEnabled && !renderingGroupEnabled) {
         return EMPTY;
       }
       synchronized (COLLECTION_LOCK) {
-        if (!runtimeGroupEnabled) {
+        boolean includeRuntime = runtimeGroupEnabled;
+        boolean includeRendering = renderingGroupEnabled;
+        if (!includeRuntime && !includeRendering) {
           return EMPTY;
         }
-        nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES);
-        long[] values = {javaCounter, javaGauge, javaTimerNanos, NATIVE_VALUES[0], NATIVE_VALUES[1]};
+        long nativeCounter = 0L;
+        long nativeGauge = 0L;
+        if (includeRuntime) {
+          nativeBridge.readMetrics(NATIVE_METRIC_IDS, NATIVE_VALUES);
+          nativeCounter = NATIVE_VALUES[0];
+          nativeGauge = NATIVE_VALUES[1];
+        }
+        long[] values = {
+            includeRuntime ? javaCounter : 0L,
+            includeRuntime ? javaGauge : 0L,
+            includeRuntime ? javaTimerNanos : 0L,
+            nativeCounter,
+            nativeGauge,
+            includeRendering ? reuseAttempts : 0L,
+            includeRendering ? reuseSuccesses : 0L,
+            includeRendering ? reuseFallbacks : 0L,
+            includeRendering ? moveRecovered : 0L
+        };
         return new RuntimeDiagnosticSnapshot(METRIC_IDS, DOMAINS, KINDS, values, epoch);
       }
     }
@@ -161,6 +225,30 @@ final class RuntimeDiagnosticsSupport {
       }
     }
 
+    private static void addRenderingCounter(int counter) {
+      synchronized (COLLECTION_LOCK) {
+        if (!renderingGroupEnabled) {
+          return;
+        }
+        switch (counter) {
+        case 0:
+          reuseAttempts++;
+          break;
+        case 1:
+          reuseSuccesses++;
+          break;
+        case 2:
+          reuseFallbacks++;
+          break;
+        case 3:
+          moveRecovered++;
+          break;
+        default:
+          throw new IllegalArgumentException("unknown rendering counter");
+        }
+      }
+    }
+
     private static void addNativeCounter(long delta) {
       synchronized (COLLECTION_LOCK) {
         if (runtimeGroupEnabled) {
@@ -183,12 +271,18 @@ final class RuntimeDiagnosticsSupport {
       }
     }
 
-    private static void reset() {
+    private static void reset(RuntimeDiagnosticSnapshot.Domain domain) {
       synchronized (COLLECTION_LOCK) {
-        if (runtimeGroupEnabled) {
+        if (domain == RuntimeDiagnosticSnapshot.Domain.RUNTIME && runtimeGroupEnabled) {
           javaCounter = 0L;
           javaTimerNanos = 0L;
           nativeBridge.resetMetrics(RUNTIME_GROUP_MASK);
+          epoch++;
+        } else if (domain == RuntimeDiagnosticSnapshot.Domain.RENDERING && renderingGroupEnabled) {
+          reuseAttempts = 0L;
+          reuseSuccesses = 0L;
+          reuseFallbacks = 0L;
+          moveRecovered = 0L;
           epoch++;
         }
       }
