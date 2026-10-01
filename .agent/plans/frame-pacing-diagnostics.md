@@ -43,8 +43,9 @@ production scheduling policy changes.
 
 - [x] (2026-09-30) Created isolated branch `feat/frame-pacing-diagnostics`
   from fetched `origin/master`; confirmed the baseline invariants below.
-- [ ] Milestone 1: one shared Flick advancement path, internal drivers, a
-  deterministic clock seam, and semantic parity tests.
+- [x] (2026-09-30) Milestone 1: one shared Flick advancement path, internal
+  TimerEvent/UpdateListener drivers, a deterministic clock seam, and 9 focused
+  semantic tests passed. No native build was run.
 - [ ] Milestone 2: opt-in SCHEDULING aggregates and focused enabled/disabled
   diagnostics tests.
 - [ ] Milestone 3: concise measurement harness, deployed macOS smoke, and
@@ -216,9 +217,11 @@ limitations, not commit IDs, raw logs, or an execution diary.
 
 ## Outcomes & Retrospective
 
-No implementation outcomes yet. At milestone completion, record only the
-observable result, focused proof, and any deferred expensive validation here;
-move detailed evidence into the final report.
+Milestone 1 now routes both internal drivers through the same millisecond-based
+advancement body. TimerEvent remains the default, and the deterministic parity
+suite passes for both axes, scroll limits, target refusal, elapsed completion,
+page position, listener deltas, UIRobot abort, and driver cleanup. Native builds
+remain deferred until the final milestone.
 
 ## Revision Note
 
