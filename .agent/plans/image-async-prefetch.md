@@ -24,7 +24,7 @@ The source of truth for the feature contract is the user-provided `Q-P8-async-im
 - [x] (2026-09-30) Identity and discovery: added hierarchy hooks, clipped visible-image discovery, immutable request snapshots/readiness, and the sole public operation `ScrollContainer.prepareForDisplay(Runnable)`.
 - [x] (2026-09-30) Detached preparation and adoption: added JPEG worker preparation, bounded process-global FIFO/dedupe, stale/failure handling, and UI-thread callbacks.
 - [x] (2026-09-30) Diagnostics and tests: added aggregate PREFETCH metrics, lifecycle and queue-bound tests, artifact-boundary validation, and deployed macOS smokes.
-- [ ] Finalize validation, editorial report, ordered commits, push, and stacked PR targeting P5.
+- [x] (2026-09-30) Finalized validation and report, committed the ordered P8 history with the report last, pushed the branch, and opened stacked PR #479 against P5.
 
 ## Current Architecture and Scope
 
@@ -100,7 +100,7 @@ The implementation worktree is `/Users/flsobral/repos/totalcross-image-async-pre
 
 ## Outcomes & Retrospective
 
-Implementation and planned validation are complete. The pending registry is capped at 128 identities; requests beyond the cap settle as transient so a later explicit batch may retry them. Final report, ordered commits, push, and stacked PR remain.
+Implementation, planned validation, report, ordered commits, branch push, and stacked PR are complete. The pending registry is capped at 128 identities; requests beyond the cap settle as transient so a later explicit batch may retry them.
 
 ## Revision Note
 
