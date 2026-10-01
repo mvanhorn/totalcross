@@ -38,10 +38,15 @@ each milestone. The final factual handoff is
       worktree, and confirmed P1's typed default-off policy.
 - [x] (2026-09-30) Added the internal fallback enum and pure physical-rectangle
       planner; focused M1 tests pass without a native build.
-- [ ] Complete Milestone 2 raster move and ScrollContainer integration with
-      correctness comparison against forced full repaint.
-- [ ] Complete focused SDK and macOS validation, write and commit the report,
-      then push and open a PR against master. Do not merge before the P6 check.
+- [x] (2026-09-30) Added the overlap-safe 32-bit native row move, guarded
+      ScrollContainer integration, damage-clipped repaint, and immediate full
+      repaint recovery. Simulator differential tests cover both directions,
+      repeated/smooth/near-viewport steps, nested controls, and fallback states.
+- [x] (2026-09-30) Added rendering-domain aggregate counters and a deployed Image
+      scroll smoke. The legacy macOS primitive passed direct positive/negative
+      physical-row checks; enabled scroll steps matched full repaint.
+- [ ] Finish final header/diff review, write and commit the report last, then
+      push and open a PR against master. Do not merge before the P6 check.
 
 ## Current Architecture and Scope
 
@@ -58,9 +63,11 @@ buffer to the target screen format. Graphics.copyRect is a general drawing
 operation with current draw/clip semantics; it is not yet proven to provide a
 bounded byte-exact raster move. RuntimeEnvironment exposes RASTER/GPU, but that
 fact alone does not prove the legacy renderer uses the shared array. Native
-capability must also be checked. The planner treats integer content scales as
-supported because fractional scales can shift individual rounded edges by
-different physical pixel counts; other scales select UNSUPPORTED_TRANSFORM.
+capability must also be checked. Pure planning math accepts integral scales.
+Deployed native ScrollContainer reuse is currently limited to scale 1: the
+macOS legacy raster renderer does not map high-density logical painting to the
+whole physical framebuffer consistently, so scale > 1 selects
+UNSUPPORTED_TRANSFORM. Simulator scale math remains covered independently.
 
 P1 already exposes ImageRuntimePolicy.ScrollRasterReusePolicy.enabled and its
 default is false. Consume this field only. RuntimeDiagnosticSnapshot currently
@@ -148,6 +155,13 @@ orthogonal, and rerun full P7 validation plus relevant P6 regression smokes.
   Rationale: fractional logical edge rounding can make a uniform framebuffer
   translation differ from repainting content at its new logical position.
   Date: 2026-09-30.
+- Decision: Limit deployed native reuse to content scale 1 while keeping the
+  row-copy primitive physical-coordinate based.
+  Rationale: the macOS scale-2 integration smoke exposed pixels outside the
+  mapped partial repaint, so that renderer configuration must fall back until
+  its high-density raster path is proven equivalent. The primitive passed
+  direct physical rectangle checks in both overlap directions.
+  Date: 2026-09-30.
 
 ## Validation and Acceptance
 
@@ -169,16 +183,15 @@ review against origin/master.
 
 ## Risks and Open Questions
 
-- The exact physical coordinate of ScrollContainer's clipped bag may include
-  ancestors, borders, content scale, and transparent/temporary scrollbars;
-  resolve from current paint and clipping behavior before implementation.
-- Runtime backend code 1 groups every non-GLES configuration. Find a reliable
-  raster capability proof before allowing reuse; otherwise fall back.
-- Window.needsPaint is global and native dirty bounds are accumulated in
-  Context. Establish when pre-existing damage can be observed safely; any
-  ambiguity must choose full viewport repaint.
-- Confirm how the current test and smoke source sets can enable the internal
-  policy without shipping a runtime switch in application artifacts.
+- The implementation derives the clipped viewport from bag0's refreshed
+  graphics clip and translation, then clips against the physical framebuffer.
+- Runtime backend code alone does not prove legacy native move support. The
+  native primitive returns unavailable for Skia/GLES builds, and native scale
+  > 1 is rejected before the move.
+- Window.needsPaint is checked before planning and native Context dirty bounds
+  are checked under the screen lock; either conflict selects a full repaint.
+- The smoke source set enables the package-private test policy and is packaged
+  only by verification tasks; no application-facing switch is added.
 - P6 is not merged in the fetched base. Rebase and interaction validation are
   a required pre-merge follow-up if that state changes.
 

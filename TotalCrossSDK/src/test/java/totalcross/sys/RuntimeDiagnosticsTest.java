@@ -57,14 +57,16 @@ class RuntimeDiagnosticsTest {
   void tearDown() throws Exception {
     if (supportClass != null) {
       RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RUNTIME, false);
+      RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RENDERING, false);
       bridgeField.set(null, originalBridge);
     }
   }
 
   @Test
   void publicMetadataContainsDomainsAndKindsWithoutMetricKeys() {
-    assertEquals(1, RuntimeDiagnosticSnapshot.Domain.values().length);
+    assertEquals(2, RuntimeDiagnosticSnapshot.Domain.values().length);
     assertEquals("RUNTIME", RuntimeDiagnosticSnapshot.Domain.RUNTIME.name());
+    assertEquals("RENDERING", RuntimeDiagnosticSnapshot.Domain.RENDERING.name());
     assertEquals(3, RuntimeDiagnosticSnapshot.Kind.values().length);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.COUNTER.ordinal(), 0);
     assertEquals(RuntimeDiagnosticSnapshot.Kind.GAUGE.ordinal(), 1);
@@ -204,6 +206,29 @@ class RuntimeDiagnosticsTest {
     assertEquals(0, first.size());
     assertEquals(0, nativeValues.batchReads);
     assertEquals(0, nativeValues.singleReads);
+  }
+
+  @Test
+  void renderingEventsAreRecordedOnlyWhenTheirDomainIsEnabled() throws Exception {
+    assumeTrue(RuntimeDiagnostics.isSupported());
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RENDERING, true);
+    invoke("resetForTest", new Class<?>[] {RuntimeDiagnosticSnapshot.Domain.class},
+        RuntimeDiagnosticSnapshot.Domain.RENDERING);
+
+    RuntimeDiagnostics.recordRenderingReuseAttempt();
+    RuntimeDiagnostics.recordRenderingReuseSuccess();
+    RuntimeDiagnostics.recordRenderingReuseFallback();
+    RuntimeDiagnostics.recordRenderingMoveRecovered();
+
+    assertEquals(4L, RuntimeDiagnostics.snapshot().getValue(RuntimeDiagnosticSnapshot.Domain.RENDERING,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RENDERING, false);
+    RuntimeDiagnostics.recordRenderingReuseAttempt();
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RENDERING, true);
+    assertEquals(4L, RuntimeDiagnostics.snapshot().getValue(RuntimeDiagnosticSnapshot.Domain.RENDERING,
+        RuntimeDiagnosticSnapshot.Kind.COUNTER));
+    RuntimeDiagnostics.setDomainEnabled(RuntimeDiagnosticSnapshot.Domain.RENDERING, false);
+    assertSame(RuntimeDiagnostics.snapshot(), RuntimeDiagnostics.snapshot());
   }
 
   @Test
