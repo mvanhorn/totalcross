@@ -44,14 +44,20 @@ production scheduling policy changes.
 - [x] (2026-09-30) Created isolated branch `feat/frame-pacing-diagnostics`
   from fetched `origin/master`; confirmed the baseline invariants below.
 - [x] (2026-09-30) Milestone 1: one shared Flick advancement path, internal
-  TimerEvent/UpdateListener drivers, a deterministic clock seam, and 9 focused
+  TimerEvent/UpdateListener drivers, a deterministic clock seam, and 10 focused
   semantic tests passed. No native build was run.
 - [x] (2026-09-30) Milestone 2: appended SCHEDULING aggregates, gated
   nanosecond measurements, and passed focused tests with diagnostics off/on.
 - [ ] Milestone 3: concise measurement harness, deployed macOS smoke, and
   requested 40 fps, 60 fps, and UpdateListener observations.
+  The harness and Gradle deploy/run tasks compile; deployed execution and
+  measurements remain pending.
 - [ ] Milestone 4: focused SDK/native validation, audit report, final handoff,
   ordered commits, push, and pull request against `master`.
+  Diagnostics-off `dist -x test` and `artifactContentTest -x test` pass. The
+  unexcluded artifact task pulled in the full `:test` task, which reported one
+  unrelated `SlidingWindowSafeAreaTest` null-array failure (439 of 440 passed).
+  Focused Flick/diagnostics tests passed with diagnostics both off and on.
 
 ## Current Architecture and Scope
 

@@ -663,6 +663,7 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
     }
     expectedCallbackNanoTime += diagnosticIntervalNanos;
     RuntimeDiagnostics.recordFlickCallbackInternal(latenessNanos);
+    onDiagnosticCallback(latenessNanos);
     return true;
   }
 
@@ -676,6 +677,13 @@ public class Flick implements PenListener, TimerListener, UpdateListener {
     boolean completed = advanceAnimation();
     long workNanos = System.nanoTime() - startNanoTime;
     RuntimeDiagnostics.recordFlickAdvancementInternal(workNanos, completed);
+    onDiagnosticAdvancement(workNanos, completed);
+  }
+
+  void onDiagnosticCallback(long positiveLatenessNanos) {
+  }
+
+  void onDiagnosticAdvancement(long workNanos, boolean completed) {
   }
 
   private boolean advanceAnimation() {
