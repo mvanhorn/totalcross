@@ -25,6 +25,9 @@ production scheduling policy changes.
 
 - This plan is the active progress record. Do not create `.agent/state` for
   this task.
+- `.agent/evidence/frame-pacing-diagnostics.md` is the single index for exact
+  validation counts, measurement aggregates, and local log paths. Read it when
+  writing or checking the final report; do not copy log paths into the report.
 - At continuation, read Progress, the active milestone below, and only the
   named files needed for its next action.
 - `.agent/reports/frame-pacing-diagnostics.md` is the final factual handoff;
@@ -96,8 +99,11 @@ The bounded pacing audit found:
 - `TotalCrossSDK/src/main/java/tc/simulator/EventLoop.java` polls its queue for
   up to 5 ms and runs at maximum thread priority. This bounds simulator event
   wakeups.
-- Simulator `RuntimeState` and `StreamBridge` use `Thread.yield()` for
-  startup/thread cooperation and worker responsiveness. Leave them unchanged.
+- `MainWindow.runOnMainThread` schedules a 1 ms timer and yields for thread
+  cooperation; this is separate from Flick's relative timer.
+- Simulator `RuntimeState` yields while waiting for the main window, and
+  `StreamBridge` uses a 10 ms sleep while a modal alert is visible plus yields
+  in its vibration worker. Leave these waits unchanged.
 
 These waits can influence when callbacks arrive; P11 measures that effect and
 does not alter it. Platform-specific event sources continue to be polled by the
